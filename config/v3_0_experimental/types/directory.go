@@ -29,7 +29,7 @@ func (d Directory) ValidateMode() report.Report {
 	}
 	if d.Mode == nil {
 		r.Add(report.Entry{
-			Message: errors.ErrPermissionsUnset.Error(),
+			Message: errors.ErrDirectoryPermissionsUnset.Error(),
 			Kind:    report.EntryWarning,
 		})
 	}

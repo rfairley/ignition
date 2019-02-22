@@ -15,6 +15,8 @@
 package files
 
 import (
+	"os"
+
 	"github.com/coreos/ignition/tests/register"
 	"github.com/coreos/ignition/tests/types"
 )
@@ -23,6 +25,7 @@ func init() {
 	register.Register(register.PositiveTest, CreateDirectoryOnRoot())
 	register.Register(register.PositiveTest, ForceDirCreation())
 	register.Register(register.PositiveTest, ForceDirCreationOverNonemptyDir())
+	register.Register(register.PositiveTest, ApplyDefaultDirectoryPermissions())
 }
 
 func CreateDirectoryOnRoot() types.Test {
@@ -67,7 +70,7 @@ func ForceDirCreation() types.Test {
 	    "directories": [{
 	      "filesystem": "root",
 	      "path": "/foo/bar",
-		  "overwrite": true
+	      "overwrite": true
 	    }]
 	  }
 	}`
@@ -109,7 +112,7 @@ func ForceDirCreationOverNonemptyDir() types.Test {
 	    "directories": [{
 	      "filesystem": "root",
 	      "path": "/foo/bar",
-		  "overwrite": true
+	      "overwrite": true
 	    }]
 	  }
 	}`
@@ -132,6 +135,39 @@ func ForceDirCreationOverNonemptyDir() types.Test {
 	})
 	configMinVersion := "3.0.0-experimental"
 	// TODO: add ability to ensure that foo/bar/baz doesn't exist here.
+
+	return types.Test{
+		Name:             name,
+		In:               in,
+		Out:              out,
+		Config:           config,
+		ConfigMinVersion: configMinVersion,
+	}
+}
+
+func ApplyDefaultDirectoryPermissions() types.Test {
+	name := "Apply Default Directory Permissions"
+	in := types.GetBaseDisk()
+	out := types.GetBaseDisk()
+	config := `{
+	  "ignition": { "version": "$version" },
+	  "storage": {
+	    "directories": [{
+	      "filesystem": "root",
+	      "path": "/foo/bar"
+	    }]
+	  }
+	}`
+	out[0].Partitions.AddDirectories("ROOT", []types.Directory{
+		{
+			Node: types.Node{
+				Name:      "bar",
+				Directory: "foo",
+			},
+			Mode: 0755 | int(os.ModeDir),
+		},
+	})
+	configMinVersion := "3.0.0-experimental"
 
 	return types.Test{
 		Name:             name,

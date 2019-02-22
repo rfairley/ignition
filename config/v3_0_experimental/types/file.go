@@ -38,7 +38,7 @@ func (f File) ValidateMode() report.Report {
 	}
 	if f.Mode == nil {
 		r.Add(report.Entry{
-			Message: errors.ErrPermissionsUnset.Error(),
+			Message: errors.ErrFilePermissionsUnset.Error(),
 			Kind:    report.EntryWarning,
 		})
 	}
