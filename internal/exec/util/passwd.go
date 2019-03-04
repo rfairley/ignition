@@ -17,14 +17,22 @@ package util
 import (
 	"fmt"
 	"os/exec"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 
-	keys "github.com/coreos/ignition/internal/authorized_keys_d"
+	"github.com/coreos/ignition/internal/as_user"
 	"github.com/coreos/ignition/internal/config/types"
 	"github.com/coreos/ignition/internal/distro"
 	"github.com/coreos/ignition/internal/log"
+)
+
+const (
+	authorizedKeysFile = "authorized_keys"
+	authorizedKeysDir  = "authorized_keys.d"
+	sshDir             = ".ssh"
 )
 
 // EnsureUser ensures that the user exists as described. If the user does not
@@ -160,7 +168,42 @@ func translateV2_1PasswdUserGroupSliceToStringSlice(groups []types.Group) []stri
 	return newGroups
 }
 
-// AuthorizeSSHKeys adds the provided SSH public keys to the user's authorized keys.
+// sshDirPath returns the path to the .ssh dir for the user.
+func sshDirPath(u *user.User) string {
+	return filepath.Join(u.HomeDir, sshDir)
+}
+
+// authKeysFilePath returns the path to the authorized_keys file for the user.
+func authKeysFilePath(u *user.User) string {
+	return filepath.Join(sshDirPath(u), authorizedKeysFile)
+}
+
+// authKeysDirPath returns the path to the authorized_keys.d for the user.
+func authKeysDirPath(u *user.User) string {
+	return filepath.Join(sshDirPath(u), authorizedKeysDir)
+}
+
+// writeAuthKeysFile writes the content in keys to the path fp for the user,
+// creating any directories in fp as needed.
+func writeAuthKeysFile(u *user.User, fp string, keys []byte) error {
+	if err := as_user.MkdirAll(u, filepath.Dir(fp), 0700); err != nil {
+		return err
+	}
+
+	f, err := as_user.OpenFile(u, fp, syscall.O_WRONLY|syscall.O_CREAT|syscall.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err = f.Write(keys); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Add the provided SSH public keys to the user's authorized keys.
 func (u Util) AuthorizeSSHKeys(c types.PasswdUser) error {
 	if len(c.SSHAuthorizedKeys) == 0 {
 		return nil
@@ -171,12 +214,6 @@ func (u Util) AuthorizeSSHKeys(c types.PasswdUser) error {
 		if err != nil {
 			return fmt.Errorf("unable to lookup user %q", c.Name)
 		}
-
-		akd, err := keys.Open(usr, true)
-		if err != nil {
-			return err
-		}
-		defer akd.Close()
 
 		// TODO(vc): introduce key names to config?
 		// TODO(vc): validate c.SSHAuthorizedKeys well-formedness.
@@ -189,12 +226,10 @@ func (u Util) AuthorizeSSHKeys(c types.PasswdUser) error {
 			ks = ks + "\n"
 		}
 
-		if err := akd.Add("ignition", []byte(ks), true, true); err != nil {
-			return err
-		}
-
-		if err := akd.Sync(); err != nil {
-			return err
+		if distro.UseAuthorizedKeysFile() {
+			writeAuthKeysFile(usr, authKeysFilePath(usr), []byte(ks))
+		} else {
+			writeAuthKeysFile(usr, filepath.Join(authKeysDirPath(usr), "ignition"), []byte(ks))
 		}
 
 		return nil

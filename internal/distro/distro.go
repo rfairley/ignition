@@ -57,6 +57,11 @@ var (
 	// Flags
 	selinuxRelabel  = "false"
 	blackboxTesting = "false"
+	// useAuthorizedKeysFile specifies whether to sync user SSH key
+	// fragments in .ssh/authorized_keys.d to .ssh/authorized_keys. Set
+	// this to "true" for distros that do not support reading key fragments
+	// from .ssh/authorized_keys.d.
+	useAuthorizedKeysFile = "false"
 )
 
 func DiskByIDDir() string       { return diskByIDDir }
@@ -85,6 +90,9 @@ func XfsMkfsCmd() string   { return xfsMkfsCmd }
 
 func SelinuxRelabel() bool  { return bakedStringToBool(selinuxRelabel) }
 func BlackboxTesting() bool { return bakedStringToBool(blackboxTesting) }
+func UseAuthorizedKeysFile() bool {
+	return bakedStringToBool(fromEnv("USE_AUTHORIZED_KEYS_FILE", useAuthorizedKeysFile))
+}
 
 func fromEnv(nameSuffix, defaultValue string) string {
 	value := os.Getenv("IGNITION_" + nameSuffix)
