@@ -20,6 +20,6 @@ import (
 )
 
 func (d Device) Validate(c path.ContextPath) (r report.Report) {
-	r.AddOnError(c, validatePath(string(d)))
+	r.AddOnError(c.Append("device"), validatePath(string(d)))
 	return
 }
